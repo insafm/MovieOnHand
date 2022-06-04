@@ -1,5 +1,4 @@
 import os
-from matplotlib.style import available
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from bs4 import BeautifulSoup
@@ -7,9 +6,7 @@ from unidecode import unidecode
 from pprint import pprint as pp
 from prettytable import PrettyTable
 import re
-
-
-base_url = 'https://tamilblasters.lol/'
+from .config import *
 
 class bcolors:
 	HEADER = '\033[95m'
@@ -22,8 +19,13 @@ class bcolors:
 	BOLD = '\033[1m'
 	UNDERLINE = '\033[4m'
 
+# --------------------------------------------------
+# Main class for downloading movie and get info
+# --------------------------------------------------
 class InsMovie(object):
-
+	"""
+	Main class for downloading movie and get info
+	"""
 	# Get the movie name and details
 	def get_movie_details(self, text):
 		
@@ -135,7 +137,7 @@ class InsMovie(object):
 
 	# Main executing function
 	def run(self):
-		page = requests.get(base_url).text
+		page = requests.get(BASE_URL).text
 		soup = BeautifulSoup(page, 'html.parser')
 
 		exclude_string_list = [
