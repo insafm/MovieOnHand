@@ -1,20 +1,15 @@
-import time
-import sched
 import os
 from matplotlib.style import available
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from bs4 import BeautifulSoup
-from pathlib import Path
-from sympy import li
 from unidecode import unidecode
-import pandas as pd
 from pprint import pprint as pp
 from prettytable import PrettyTable
 import re
 
 
-base_url = 'https://tamilblasters.click/'
+base_url = 'https://tamilblasters.lol/'
 
 class bcolors:
 	HEADER = '\033[95m'
