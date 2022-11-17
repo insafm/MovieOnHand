@@ -25,6 +25,10 @@ class bcolors:
 # --------------------------------------------------
 class InsMovie(object):
 
+	movie_page = None
+	movie_table = None
+	movie_all_list = []
+
 	# Initialize
 	def __init__(self):
 		print(bcolors.FAIL + f"\nATTENTION: This experiment is done in Python for educational purpose. I am not responsible for your download of illegal content, pirated files or download without permissions by using this script and it does not offer its own torrent files. There are several risks involved in using the script, including downloading files with viruses and malware and violating copyright laws. Although it's not illegal to share and download torrents, you can be prosecuted if the files are copyrighted. So, avoid this kind of content. Also, use a VPN to use the script because it'll protect you against malware and viruses and hide your identity. Please respect the laws license permits of your country. \n" + bcolors.ENDC)
@@ -216,10 +220,12 @@ class InsMovie(object):
 		except Exception as e:
 			print(f"ERROR: {str(e)} while downloading: {url}.")
 
-	# Main executing function
-	def run(self):
-		page = requests.get(BASE_URL).text
-		soup = BeautifulSoup(page, 'html.parser')
+	# Get movie list
+	def show_movie_table(self):
+		if not self.movie_page:
+			self.movie_page = requests.get(BASE_URL).text
+
+		soup = BeautifulSoup(self.movie_page, 'html.parser')
 
 		exclude_string_list = [
 			'WE ARE NOW AVAILABLE ON',
@@ -232,138 +238,183 @@ class InsMovie(object):
 
 		i = 0
 		
-		# TODO: Table style formating
-		x = PrettyTable()
-		x.field_names = ['Sl.No', 'Title', 'Year', 'Languages', 'Type', 'Quality', 'Audio']
+		if not self.movie_table:
+			self.movie_table = PrettyTable()
+			self.movie_table.field_names = ['Sl.No', 'Title', 'Year', 'Languages', 'Type', 'Quality', 'Audio']
 
-		# Align left
-		for field in x.field_names:
-			x.align[field] = "l"
-		
-		all_list = []
-		
-		for node in soup.find_all('p'):
-			text = node.get_text().strip()
-			if text:
-				# skip if it is in exclude string list or length is less than 40
-				if any(x in text for x in exclude_string_list) or len(text) < 40:
-					continue
-				
-				i += 1
-				
-				movie_details_list = [i]
-				# print(bcolors.OKGREEN + text + bcolors.ENDC)
-				movie_detail = self.get_movie_details(text)
-				movie_details_list += list(movie_detail.values())
-				
-				movie_links = self.get_movie_links(node)
-				# pp(movie_links)
-				# movie_links_size_list = [item['size'] for item in movie_links]
-				# movie_links_size_list = "-".join(movie_links_size_list)
-				# movie_details_list.append(movie_links_size_list)
+			# Align left
+			for field in self.movie_table.field_names:
+				self.movie_table.align[field] = "l"
+			
+			find_all = soup.find_all('p')
 
-				# Saving data for later use
-				movie_detail['links'] = movie_links
-				movie_detail['extra'] = {
-					'title': text
-				}
-				all_list.append(movie_detail)
-
-				# pp(movie_details_list)
-
-				if len(movie_details_list) == len(x.field_names):
-					x.add_row(movie_details_list)
+			for node in find_all:
+				text = node.get_text().strip()
+				if text:
+					# skip if it is in exclude string list or length is less than 40
+					if any(x in text for x in exclude_string_list) or len(text) < 40:
+						continue
 					
-			if i >= 500:
-				break
+					i += 1
+					
+					movie_details_list = [i]
+					movie_detail = self.get_movie_details(text)
+					movie_details_list += list(movie_detail.values())
+					
+					movie_links = self.get_movie_links(node)
+
+					# Saving data for later use
+					movie_detail['links'] = movie_links
+					movie_detail['extra'] = {
+						'title': text,
+					}
+					self.movie_all_list.append(movie_detail)
+
+					if len(movie_details_list) == len(self.movie_table.field_names):
+						self.movie_table.add_row(movie_details_list)
+						
+				if i >= LIST_LIMIT:
+					break
+
+		print(self.movie_table)
 		
-		print(x)
 
-		# Select movie to download
-		option = int(input("Enter Number: ")) - 1
-		if len(all_list) >= option:
+	# Main executing function
+	def run(self):
 
-			print(bcolors.HEADER + f"\n{all_list[option]['extra']['title']}" + bcolors.ENDC)
+		# Back selected
+		back_selected = True
 
-			# IMDB details
-			imdb = self.get_imdb(all_list[option]["movie_name"], all_list[option]["year"])
-			if imdb and "imdbID" in imdb and imdb['imdbID']:
-				# Print IMDB details
-				for key, item in imdb.items():
-					print(f"{key}: {item}")
+		while back_selected:
+			back_selected = False
+			
+			# Print table
+			self.show_movie_table()
+
+			# Select movie to download
+			option_input = input("Enter Number: ")
+			
+			# Check back selected
+			if option_input == "b":
+				back_selected = True
+				continue
+
+			option = int(option_input) - 1
+			if len(self.movie_all_list) >= option:
+
+				print(bcolors.HEADER + f"\n{self.movie_all_list[option]['extra']['title']}" + bcolors.ENDC)
+
+				# IMDB details
+				imdb = self.get_imdb(self.movie_all_list[option]["movie_name"], self.movie_all_list[option]["year"])
+				if imdb and "imdbID" in imdb and imdb['imdbID']:
+					# Print IMDB details
+					for key, item in imdb.items():
+						print(f"{key}: {item}")
+					
+					# Open IMDB page
+					option_open_imdb = input("Do you wanna open IMDB page? (Y|n)? ")
+					option_open_imdb = option_open_imdb if option_open_imdb else "Y"
+
+					# Check back selected
+					if option_open_imdb == "b":
+						back_selected = True
+						continue
+
+					imdb_link = f"https://www.imdb.com/title/{imdb['imdbID']}/"
+					if option_open_imdb == "Y":
+						os.system('xdg-open "%s"' % imdb_link)
 				
-				# Open IMDB page
-				option_open_imdb = input("Do you wanna open IMDB page? (Y|n)? ")
-				option_open_imdb = option_open_imdb if option_open_imdb else "Y"
-				imdb_link = f"https://www.imdb.com/title/{imdb['imdbID']}/"
-				if option_open_imdb == "Y":
-					os.system('xdg-open "%s"' % imdb_link)
+				# List available options
+				x2= PrettyTable()
+				x2.field_names = ['Sl.No', 'File Size', 'Format', 'Page Link']
+
+				for index, item in enumerate(self.movie_all_list[option]['links']):
+					x2_rows = [index + 1, item['size'], item['text'], item['link']]
+					x2.add_row(x2_rows)
+				print(x2)
 			
-			# List available options
-			x2= PrettyTable()
-			x2.field_names = ['Sl.No', 'File Size', 'Format', 'Page Link']
-
-			for index, item in enumerate(all_list[option]['links']):
-				x2_rows = [index + 1, item['size'], item['text'], item['link']]
-				x2.add_row(x2_rows)
-			print(x2)
-		
-		# Create directory for storing files
-		parent_dir = DOWNLOAD_DIR
-		dir_name = re.sub(r'[^a-zA-Z0-9]', '', all_list[option]['movie_name'])
-		path = parent_dir + dir_name + "/"
-		if not os.path.exists(path):
-			os.makedirs(path)
-
-		# Fetch movie link
-		option2 = int(input("Enter Sl.No: ")) - 1
-		if len(all_list[option]['links']) >= option2:
-			page_url = all_list[option]['links'][option2]['link']
-			print("Fetching: ", page_url)
-			movie_page = self.extract_movie_page(page_url)
-			# pp(movie_page)
-			if "images" in movie_page:
-				option_ss = input("Do you wanna fetch the screenshots? (Y|n)? ")
-				option_ss = option_ss if option_ss else "Y"
-
-				if option_ss == "Y":
-					for file in movie_page['images']:
-						image_name = os.path.basename(urlparse(file).path)
-						if not os.path.exists(path + image_name):
-							self.download_file(file, path)
-			
-			if option_ss == "Y":
-				# Do you wan't open the screenshots?
-				option3 = input("Do you wanna show the screenshots? (Y|n)? ")
-				option3 = option3 if option3 else "Y"
-
-				if option3 == "Y":
-					os.system('xdg-open "%s"' % path)
-			
+			# Create directory for storing files
+			parent_dir = DOWNLOAD_DIR
+			dir_name = re.sub(r'[^a-zA-Z0-9]', '', self.movie_all_list[option]['movie_name'])
+			path = parent_dir + dir_name + "/"
+			if not os.path.exists(path):
+				os.makedirs(path)
 
 			# Fetch movie link
-			option3 = input("Start Torrent Download (Y|n)? ")
-			option3 = option3 if option3 else "Y"
+			option_input = input("Enter Sl.No: ")
+			# Check back selected
+			if option_input == "b":
+				back_selected = True
+				continue
 
-			if option3 == "Y":
-				torrent_downloaded = False
-				# Download usnig torrent file - Not required
-				if "torrent_links" in movie_page and movie_page['torrent_links']:
-					for file in movie_page['torrent_links']:
-						torrent = self.download_file(file, path)
-						torrent_downloaded = self.download_torrent(torrent, path)
-				else:
-					# Download using magnet link now.
-					if "magnet_links" in movie_page and movie_page['magnet_links']:
-						for torrent in movie_page['magnet_links']:
-							torrent_downloaded = self.download_torrent(path, torrent)
+			option2 = int(option_input) - 1
+			
+			if len(self.movie_all_list[option]['links']) >= option2:
+				page_url = self.movie_all_list[option]['links'][option2]['link']
+				print("Fetching: ", page_url)
+				movie_page = self.extract_movie_page(page_url)
+				# pp(movie_page)
+				if "images" in movie_page:
+					option_ss = input("Do you wanna fetch the screenshots? (Y|n)? ")
+
+					# Check back selected
+					if option_ss == "b":
+						back_selected = True
+						continue
+
+					option_ss = option_ss if option_ss else "Y"
+
+					if option_ss == "Y":
+						for file in movie_page['images']:
+							image_name = os.path.basename(urlparse(file).path)
+							if not os.path.exists(path + image_name):
+								self.download_file(file, path)
 				
-				if torrent_downloaded:
-					# Do you wan't open the downloaded?
-					option_open_downloads = input("Do you wanna open the downloads? (Y|n)? ")
-					option_open_downloads = option_open_downloads if option_open_downloads else "Y"
-					if option_open_downloads == "Y":
+				if option_ss == "Y":
+					# Do you wan't open the screenshots?
+					option3 = input("Do you wanna show the screenshots? (Y|n)? ")
+					option3 = option3 if option3 else "Y"
+
+					if option3 == "Y":
 						os.system('xdg-open "%s"' % path)
+				
+
+				# Fetch movie link
+				option3 = input("Start Torrent Download (Y|n)? ")
+				option3 = option3 if option3 else "Y"
+
+				# Check back selected
+				if option3 == "b":
+					back_selected = True
+					continue
+
+
+				if option3 == "Y":
+					torrent_downloaded = False
+					# Download usnig torrent file - Not required
+					if "torrent_links" in movie_page and movie_page['torrent_links']:
+						for file in movie_page['torrent_links']:
+							torrent = self.download_file(file, path)
+							torrent_downloaded = self.download_torrent(torrent, path)
+					else:
+						# Download using magnet link now.
+						if "magnet_links" in movie_page and movie_page['magnet_links']:
+							for torrent in movie_page['magnet_links']:
+								torrent_downloaded = self.download_torrent(path, torrent)
+					
+					if torrent_downloaded:
+						# Do you wan't open the downloaded?
+						option_open_downloads = input("Do you wanna open the downloads? (Y|n)? ")
+						option_open_downloads = option_open_downloads if option_open_downloads else "Y"
+
+
+						# Check back selected
+						if option_open_downloads == "b":
+							back_selected = True
+							continue
+
+						if option_open_downloads == "Y":
+							os.system('xdg-open "%s"' % path)
 
 	# Download from torrent
 	def download_torrent(self, torrent, path):
