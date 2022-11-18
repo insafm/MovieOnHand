@@ -1,12 +1,14 @@
 import os
-from urllib import response
 import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
+import re
+import libtorrent as lt
+import time
+import sys
 from bs4 import BeautifulSoup
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from urllib.parse import urlparse
 from pprint import pprint as pp
 from prettytable import PrettyTable
-import re
 from config import *
 
 class bcolors:
@@ -31,7 +33,23 @@ class InsMovie(object):
 
 	# Initialize
 	def __init__(self):
-		print(bcolors.FAIL + f"\nATTENTION: This experiment is done in Python for educational purpose. I am not responsible for your download of illegal content, pirated files or download without permissions by using this script and it does not offer its own torrent files. There are several risks involved in using the script, including downloading files with viruses and malware and violating copyright laws. Although it's not illegal to share and download torrents, you can be prosecuted if the files are copyrighted. So, avoid this kind of content. Also, use a VPN to use the script because it'll protect you against malware and viruses and hide your identity. Please respect the laws license permits of your country. \n" + bcolors.ENDC)
+		
+		# Banner
+		print(bcolors.OKGREEN + """
+		
+ ███▄ ▄███▓ ▒█████   ██▒   █▓ ██▓▓█████  ▒█████   ███▄    █  ██░ ██  ▄▄▄       ███▄    █ ▓█████▄ 
+▓██▒▀█▀ ██▒▒██▒  ██▒▓██░   █▒▓██▒▓█   ▀ ▒██▒  ██▒ ██ ▀█   █ ▓██░ ██▒▒████▄     ██ ▀█   █ ▒██▀ ██▌
+▓██    ▓██░▒██░  ██▒ ▓██  █▒░▒██▒▒███   ▒██░  ██▒▓██  ▀█ ██▒▒██▀▀██░▒██  ▀█▄  ▓██  ▀█ ██▒░██   █▌
+▒██    ▒██ ▒██   ██░  ▒██ █░░░██░▒▓█  ▄ ▒██   ██░▓██▒  ▐▌██▒░▓█ ░██ ░██▄▄▄▄██ ▓██▒  ▐▌██▒░▓█▄   ▌
+▒██▒   ░██▒░ ████▓▒░   ▒▀█░  ░██░░▒████▒░ ████▓▒░▒██░   ▓██░░▓█▒░██▓ ▓█   ▓██▒▒██░   ▓██░░▒████▓ 
+░ ▒░   ░  ░░ ▒░▒░▒░    ░ ▐░  ░▓  ░░ ▒░ ░░ ▒░▒░▒░ ░ ▒░   ▒ ▒  ▒ ░░▒░▒ ▒▒   ▓▒█░░ ▒░   ▒ ▒  ▒▒▓  ▒ 
+░  ░      ░  ░ ▒ ▒░    ░ ░░   ▒ ░ ░ ░  ░  ░ ▒ ▒░ ░ ░░   ░ ▒░ ▒ ░▒░ ░  ▒   ▒▒ ░░ ░░   ░ ▒░ ░ ▒  ▒ 
+░      ░   ░ ░ ░ ▒       ░░   ▒ ░   ░   ░ ░ ░ ▒     ░   ░ ░  ░  ░░ ░  ░   ▒      ░   ░ ░  ░ ░  ░ 
+       ░       ░ ░        ░   ░     ░  ░    ░ ░           ░  ░  ░  ░      ░  ░         ░    ░    
+                         ░                                                                ░      """+ bcolors.ENDC)
+		
+		# Warning message
+		print(bcolors.FAIL + bcolors.BOLD + f"\nATTENTION: This experiment is done in Python for educational purpose. I am not responsible for your download of illegal content, pirated files or download without permissions by using this script and it does not offer its own torrent files. There are several risks involved in using the script, including downloading files with viruses and malware and violating copyright laws. Although it's not illegal to share and download torrents, you can be prosecuted if the files are copyrighted. So, avoid this kind of content. Also, use a VPN to use the script because it'll protect you against malware and viruses and hide your identity. Please respect the laws license permits of your country. \n" + bcolors.ENDC)
 
 		option_agree = input("Do you agree? (y|N)? ")
 		option_agree = option_agree if option_agree else "N"
@@ -39,6 +57,11 @@ class InsMovie(object):
 		if option_agree.lower() != "y":
 			print("Aborting.")
 			exit()
+
+		# Shortcuts		# 
+		print(bcolors.OKCYAN + bcolors.UNDERLINE + f"\nShortcuts: "+ bcolors.ENDC)
+		print(f"Back: b\n")
+
 
 	"""
 	Main class for downloading movie and get info
@@ -234,6 +257,8 @@ class InsMovie(object):
 			'Look Poster',
 			'Teaser',
 			'Trailer',
+			'Song Promo',
+			'BIGG BOSS',
 		]
 
 		i = 0
@@ -418,11 +443,6 @@ class InsMovie(object):
 
 	# Download from torrent
 	def download_torrent(self, torrent, path):
-		# os.system("xdg-open '" + torrent + "'")
-		import libtorrent as lt
-		import time
-		import sys
-
 		ses = lt.session({'listen_interfaces': '0.0.0.0:6881'})
 		params = {
 			'save_path': path,
@@ -437,19 +457,19 @@ class InsMovie(object):
 			h = ses.add_torrent(params)
 
 		s = h.status()
-		print('starting', s.name)
+		print(bcolors.OKGREEN + "Starting Download: "+ bcolors.ENDC + s.name)
 
 		while (not s.is_seeding):
 			s = h.status()
 
-			print('\r%.2f%% complete (down: %.1f kB/s up: %.1f kB/s peers: %d) %s' % (
+			print('\r%.2f%% completed (down: %.1f kB/s up: %.1f kB/s peers: %d) %s' % (
 				s.progress * 100, s.download_rate / 1000, s.upload_rate / 1000,
 				s.num_peers, s.state), end=' ')
 
 			sys.stdout.flush()
 			time.sleep(1)
 
-		print(h.status().name, 'complete')
+		print(h.status().name, 'completed.')
 		return True
 	
 	# Get IMDB details
